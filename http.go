@@ -12,6 +12,13 @@ import (
 	"reflect"
 )
 
+type T interface {
+	Fatalf(string, ...interface{})
+	Errorf(string, ...interface{})
+	Logf(string, ...interface{})
+	Helper()
+}
+
 // ModifierFunc allows custom extensions to the Request Builder
 type ModifierFunc func(req *http.Request)
 
@@ -97,7 +104,7 @@ func (rb *requestBuilder) Run(t T, handler http.Handler) HTTPResult {
 	handler.ServeHTTP(rec, rb.req)
 	return &httpResult{
 		rw: rec,
-		E:  NewExpect(t),
+		t:  t,
 	}
 }
 
@@ -110,31 +117,32 @@ type HTTPResult interface {
 
 type httpResult struct {
 	rw *httptest.ResponseRecorder
-	E
+	t  T
 }
 
 func (tr httpResult) Status(expect int) HTTPResult {
-	tr.getT().Helper()
-	if !tr.Expect(tr.rw.Code).Name("status").Equal(expect) {
+	tr.t.Helper()
+	if tr.rw.Code != expect {
+		tr.t.Fatalf("Status %d, expected %d", tr.rw.Code, expect)
 		tr.Log()
 	}
 	return tr
 }
 
 func (tr httpResult) Log() {
-
+	tr.t.Logf("Body: %s", tr.rw.Body.String())
 }
 
 func (tr httpResult) Header(key string, expect string, params ...interface{}) HTTPResult {
-	tr.getT().Helper()
-	tr.Expect(tr.rw.Header().Get(key)).
-		Name("header %s", key).
-		Equal(fmt.Sprintf(expect, params...))
+	tr.t.Helper()
+	if got := tr.rw.Header().Get(key); got != expect {
+		tr.t.Errorf(`Expect header %s to be "%s", got "%s"`, key, expect, got)
+	}
 	return tr
 }
 
 func (tr httpResult) BodyJSON(callback interface{}) HTTPResult {
-	tr.getT().Helper()
+	tr.t.Helper()
 	callbackValue := reflect.ValueOf(callback)
 	val := reflect.New(callbackValue.Type().In(0))
 	valInterface := val.Interface()

@@ -9,7 +9,6 @@ import (
 func TestHTTP(t *testing.T) {
 
 	tt := &testTest{t: t}
-	e := NewExpect(t)
 
 	req := BuildRequest().
 		Method("PUT").
@@ -27,24 +26,28 @@ func TestHTTP(t *testing.T) {
 	hasRun := req.Run(tt, http.HandlerFunc(
 		func(rw http.ResponseWriter, req *http.Request) {
 
-			e.Expect(req.URL.Path).
-				Name("path").
-				Equal("/path")
-			e.Expect(req.URL.Query().Get("query1")).
-				Name("query1").
-				Equal("query-val-2")
-			e.Expect(req.URL.Query().Get("query2")).
-				Name("query2").
-				Equal("v2")
-			e.Expect(req.Header.Get("hdr1")).
-				Name("hdr1").
-				Equal("hdr1-2")
-			e.Expect(req.Header.Get("hdr2")).
-				Name("hdr2").
-				Equal("hdr2")
-			e.Expect(req.Method).Name("method").Equal("PUT")
+			if path := req.URL.Path; path != "/path" {
+				t.Errorf("Path: %s", path)
+			}
+			if got := req.URL.Query().Get("query1"); got != "query-val-2" {
+				t.Errorf("Query1: %s", got)
+			}
+			if got := req.URL.Query().Get("query2"); got != "v2" {
+				t.Errorf("Query2: %s", got)
+			}
+			if got := req.Header.Get("hdr1"); got != "hdr1-2" {
+				t.Errorf("hdr1: %s", got)
+			}
+			if got := req.Header.Get("hdr2"); got != "hdr2" {
+				t.Errorf("hdr2: %s", got)
+			}
+			if req.Method != "PUT" {
+				t.Errorf("Method: %s", req.Method)
+			}
 			body, _ := ioutil.ReadAll(req.Body)
-			e.Expect(string(body)).Equal(`{"key":"val"}`)
+			if got := string(body); got != `{"key":"val"}` {
+				t.Errorf("Bad Body: %s", got)
+			}
 
 			rw.Header().Add("RespHdr", "val")
 			rw.Header().Add("OtherHeader", "other")
@@ -59,7 +62,9 @@ func TestHTTP(t *testing.T) {
 		BodyJSON(func(b struct {
 			Resp string `json:"resp"`
 		}) {
-			e.Expect(b.Resp).Name("body.val").Equal("OK")
+			if b.Resp != "OK" {
+				t.Errorf("Expected OK, got %s", b.Resp)
+			}
 		})
 
 	tt.expectNothing()
@@ -67,10 +72,10 @@ func TestHTTP(t *testing.T) {
 	// Bad Expectations
 
 	hasRun.Status(200)
-	tt.expectError("expect status 400 to equal 200")
+	tt.expectFatal("Status 400, expected 200")
 
 	hasRun.Header("missing", "val")
-	tt.expectError(`expect header missing "" to equal "val"`)
+	tt.expectError(`Expect header missing to be "val", got ""`)
 
 	/*
 		BodyJSON(func(b struct {
