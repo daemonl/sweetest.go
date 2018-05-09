@@ -100,6 +100,7 @@ func (rb *requestBuilder) BodyReader(r io.Reader) RequestBuilder {
 }
 
 func (rb *requestBuilder) Run(t T, handler http.Handler) HTTPResult {
+	t.Helper()
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, rb.req)
 	return &httpResult{
@@ -120,20 +121,21 @@ type httpResult struct {
 	t  T
 }
 
-func (tr httpResult) Status(expect int) HTTPResult {
+func (tr *httpResult) Status(expect int) HTTPResult {
 	tr.t.Helper()
 	if tr.rw.Code != expect {
-		tr.t.Fatalf("Status %d, expected %d", tr.rw.Code, expect)
 		tr.Log()
+		tr.t.Fatalf("Status %d, expected %d", tr.rw.Code, expect)
 	}
 	return tr
 }
 
-func (tr httpResult) Log() {
+func (tr *httpResult) Log() {
+	tr.t.Helper()
 	tr.t.Logf("Body: %s", tr.rw.Body.String())
 }
 
-func (tr httpResult) Header(key string, expect string, params ...interface{}) HTTPResult {
+func (tr *httpResult) Header(key string, expect string, params ...interface{}) HTTPResult {
 	tr.t.Helper()
 	if got := tr.rw.Header().Get(key); got != expect {
 		tr.t.Errorf(`Expect header %s to be "%s", got "%s"`, key, expect, got)
@@ -141,7 +143,7 @@ func (tr httpResult) Header(key string, expect string, params ...interface{}) HT
 	return tr
 }
 
-func (tr httpResult) BodyJSON(callback interface{}) HTTPResult {
+func (tr *httpResult) BodyJSON(callback interface{}) HTTPResult {
 	tr.t.Helper()
 	callbackValue := reflect.ValueOf(callback)
 	val := reflect.New(callbackValue.Type().In(0))
@@ -151,7 +153,7 @@ func (tr httpResult) BodyJSON(callback interface{}) HTTPResult {
 	return tr
 }
 
-func (tr httpResult) Raw(cb func(*httptest.ResponseRecorder)) HTTPResult {
+func (tr *httpResult) Raw(cb func(*httptest.ResponseRecorder)) HTTPResult {
 	cb(tr.rw)
 	return tr
 }
