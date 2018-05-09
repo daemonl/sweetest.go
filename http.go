@@ -20,7 +20,7 @@ type T interface {
 }
 
 // ModifierFunc allows custom extensions to the Request Builder
-type ModifierFunc func(req *http.Request)
+type ModifierFunc func(req *http.Request) *http.Request
 
 // RequestBuilder builds a HTTP Request
 type RequestBuilder interface {
@@ -48,7 +48,7 @@ type requestBuilder struct {
 }
 
 func (rb *requestBuilder) With(fn ModifierFunc) RequestBuilder {
-	fn(rb.req)
+	rb.req = fn(rb.req)
 	return rb
 }
 
